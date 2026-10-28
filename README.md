@@ -40,5 +40,3 @@ To write the detection, Gaussian, cross-section, and parabola images into a `deb
 ```powershell
 python debug_run.py C:\path\to\frames
 ```
-
-Every FITS file in the folder is used, in filename order.
