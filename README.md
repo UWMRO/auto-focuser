@@ -18,7 +18,7 @@ G(x,y) = A \exp\left(-\frac{1}{2}\left[\left(\frac{x-x_0}{\sigma_x}\right)^2 + \
 
 The width used for focusing is the mean of the two axes, \((\sigma_x + \sigma_y)/2\).
 
-Those widths are plotted against the `FOCUS` positions and fit with a parabola, in coordinates centered on the mean position. If the parabola opens upward and its vertex lies inside the sweep, the recommendation is the vertex rounded to the nearest step. Otherwise the recommendation is the sampled position with the lowest width. The result is reported only. Nothing is moved.
+Those widths are plotted against the `FOCUS` positions and fit with a parabola, in coordinates centered on the mean position. If the parabola opens upward and its vertex lies inside the sweep, the recommendation is the vertex rounded to the nearest step. Otherwise the recommendation is the sampled position with the lowest width. The result is then reported. Need to add evora-client side display of focus sigma parabola.
 
 ## Run
 
