@@ -1,0 +1,21 @@
+[project]
+name = "autofocuser"
+version = "0.1.0"
+description = "Focus measurement from a set of FITS frames. Yet to be implemented into evora server."
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=1.26",
+    "astropy>=6.0.0",
+    "scipy>=1.11.0",
+    "sep>=1.4.1",
+]
+
+[project.scripts]
+autofocus = "autofocuser.__main__:main"
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["autofocuser*"]
