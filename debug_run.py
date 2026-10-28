@@ -262,12 +262,14 @@ def save_parabola(folder: Path, frames: list[dict]) -> None:
     print(recommendation.message)
 
 
-def load_frames(source: Path, minimum_ecam: int | None) -> list[dict]:
+def load_frames(source: Path) -> list[dict]:
     frames = []
-    for path in sorted(source.glob("ecam-*.fits")):
-        number = int(path.stem.split("-")[1])
-        if minimum_ecam is not None and number < minimum_ecam:
-            continue
+    paths = sorted(
+        path
+        for path in source.iterdir()
+        if path.is_file() and path.suffix.lower() in {".fits", ".fit"}
+    )
+    for path in paths:
         with fits.open(path) as hdul:
             header = hdul[0].header
             image = np.asarray(hdul[0].data)
@@ -284,7 +286,7 @@ def load_frames(source: Path, minimum_ecam: int | None) -> list[dict]:
     return frames
 
 
-def run_folder(source: Path, minimum_ecam: int | None) -> None:
+def run_folder(source: Path) -> None:
     run = source / "debug run"
     detection = run / "detection"
     gaussian = run / "gaussian"
@@ -293,7 +295,7 @@ def run_folder(source: Path, minimum_ecam: int | None) -> None:
     for folder in (detection, gaussian, cross_section, parabola):
         folder.mkdir(parents=True, exist_ok=True)
 
-    frames = load_frames(source, minimum_ecam)
+    frames = load_frames(source)
     previous = None
     for frame in frames:
         measured = measure_star(frame["image"], previous)
@@ -312,15 +314,9 @@ def run_folder(source: Path, minimum_ecam: int | None) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Write a debug focus run.")
-    parser.add_argument("source", type=Path, help="Folder of ecam FITS files.")
-    parser.add_argument(
-        "--from-ecam",
-        type=int,
-        default=None,
-        help="First ecam number to include.",
-    )
+    parser.add_argument("source", type=Path, help="Folder of FITS files.")
     args = parser.parse_args()
-    run_folder(args.source, args.from_ecam)
+    run_folder(args.source)
 
 
 if __name__ == "__main__":

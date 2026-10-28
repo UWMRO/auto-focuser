@@ -38,7 +38,7 @@ python -m autofocuser C:\path\to\one.fits C:\path\to\two.fits --box-size 32
 To write the detection, Gaussian, cross-section, and parabola images into a `debug run` folder next to the FITS files, install `matplotlib` and run:
 
 ```powershell
-python debug_run.py C:\path\to\frames --from-ecam 53
+python debug_run.py C:\path\to\frames
 ```
 
-`--from-ecam` keeps only files whose number is at least that value. Omit it to use every `ecam-*.fits` file in the folder.
+Every FITS file in the folder is used, in filename order.
