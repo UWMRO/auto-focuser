@@ -24,6 +24,23 @@ _KRON_MIN_SCALE = 3.5
 _BOX_PADDING_PX = 2
 _MIN_DYNAMIC_BOX = 9
 
+# One-pixel rings about the fitted center. Center brightness is the mean
+# inside r < 1.5. A donut has its brightest ring at r >= 3, with the center
+# fainter than 80% of that ring.
+_RADIAL_CENTER_PX = 1.5
+_DONUT_MIN_RING_PX = 3
+_DONUT_CENTER_FRACTION = 0.8
+_MIN_RING_PIXELS = 4
+
+# A donut is often two detections, one on each bright side. A later detection
+# whose center falls inside an earlier star's box is that same star.
+# Unresolved spikes are not stars. The frame is a donut when the brightest
+# star is, or when two of the brightest distinct stars are: one stray
+# detection is not enough, and the bright star can hide a shallow hole.
+_DONUT_SAMPLE = 8
+_DONUT_VOTE_COUNT = 2
+_MIN_STAR_SIGMA = 1.0
+
 
 class MeasureError(Exception):
     pass
@@ -42,6 +59,40 @@ class StarMeasurement:
     box_origin_x: int
     box_origin_y: int
     box_size: int
+    donut: bool
+    star_donut: bool
+    center_ratio: float
+    ring_radius: int
+    donut_votes: int
+    stars_checked: int
+    stars: tuple[SampledStar, ...]
+
+
+@dataclass(frozen=True)
+class SampledStar:
+    x: float
+    y: float
+    flux: float
+    sigma: float
+    box_origin_x: int
+    box_origin_y: int
+    box_size: int
+    gauss_x: float
+    gauss_y: float
+    center_ratio: float
+    ring_radius: int
+    donut: bool
+
+
+@dataclass(frozen=True)
+class RadialProfile:
+    radii: np.ndarray
+    means: np.ndarray
+    center: float
+    ring_radius: int
+    ring_mean: float
+    ratio: float
+    donut: bool
 
 
 @dataclass(frozen=True)
@@ -73,6 +124,9 @@ def measure_star(
 
     origin_x, origin_y, cut = _cut_box(signal, x, y, side)
     sigma_x, sigma_y, amplitude, gauss_x, gauss_y = _fit_gaussian(cut, side)
+    profile = radial_profile(cut, gauss_x, gauss_y)
+    sample = sample_stars(signal, sources, segmap)
+    votes = sum(star.donut for star in sample)
     return StarMeasurement(
         x=x,
         y=y,
@@ -85,7 +139,116 @@ def measure_star(
         box_origin_x=origin_x,
         box_origin_y=origin_y,
         box_size=side,
+        donut=bool(profile.donut or votes >= _DONUT_VOTE_COUNT),
+        star_donut=profile.donut,
+        center_ratio=profile.ratio,
+        ring_radius=profile.ring_radius,
+        donut_votes=votes,
+        stars_checked=len(sample),
+        stars=tuple(sample),
     )
+
+
+def radial_profile(cut: np.ndarray, x: float, y: float) -> RadialProfile:
+    values = np.asarray(cut, dtype=float)
+    height, width = values.shape
+    yy, xx = np.mgrid[0:height, 0:width]
+    radius = np.hypot(xx - x, yy - y)
+    margin = min(float(x), float(y), width - 1.0 - float(x), height - 1.0 - float(y))
+    n_rings = int(np.floor(margin))
+    means = np.full(n_rings, np.nan)
+    for index in range(n_rings):
+        chosen = (radius >= index) & (radius < index + 1)
+        if int(np.count_nonzero(chosen)) < _MIN_RING_PIXELS:
+            continue
+        means[index] = float(np.mean(values[chosen]))
+
+    center_pixels = radius < _RADIAL_CENTER_PX
+    center = (
+        float(np.mean(values[center_pixels])) if np.any(center_pixels) else float("nan")
+    )
+    empty = RadialProfile(
+        radii=np.arange(n_rings, dtype=float) + 0.5,
+        means=means,
+        center=center,
+        ring_radius=-1,
+        ring_mean=float("nan"),
+        ratio=float("nan"),
+        donut=False,
+    )
+    if n_rings < 2:
+        return empty
+
+    outer = np.array(means[1:], copy=True)
+    finite = np.isfinite(outer)
+    if not np.any(finite):
+        return empty
+    outer[~finite] = -np.inf
+    ring_radius = int(np.argmax(outer)) + 1
+    ring_mean = float(means[ring_radius])
+    if not np.isfinite(ring_mean) or ring_mean <= 0 or not np.isfinite(center):
+        return empty
+
+    ratio = center / ring_mean
+    donut = bool(ring_radius >= _DONUT_MIN_RING_PX and ratio < _DONUT_CENTER_FRACTION)
+    return RadialProfile(
+        radii=empty.radii,
+        means=means,
+        center=center,
+        ring_radius=ring_radius,
+        ring_mean=ring_mean,
+        ratio=float(ratio),
+        donut=donut,
+    )
+
+
+def sample_stars(
+    signal: np.ndarray,
+    sources: np.ndarray,
+    segmap: np.ndarray,
+) -> list[SampledStar]:
+    order = np.argsort(sources["flux"])[::-1]
+    chosen: list[SampledStar] = []
+    for index in order:
+        star = sources[int(index)]
+        x = float(star["x"])
+        y = float(star["y"])
+        if any(_same_star(x, y, kept) for kept in chosen):
+            continue
+        try:
+            side = _dynamic_box_side(signal, star, segmap)
+            origin_x, origin_y, cut = _cut_box(signal, x, y, side)
+            sigma_x, sigma_y, _amplitude, gauss_x, gauss_y = _fit_gaussian(cut, side)
+        except MeasureError:
+            continue
+        sigma = (sigma_x + sigma_y) / 2.0
+        if sigma < _MIN_STAR_SIGMA:
+            continue
+        profile = radial_profile(cut, gauss_x, gauss_y)
+        chosen.append(
+            SampledStar(
+                x=x,
+                y=y,
+                flux=float(star["flux"]),
+                sigma=sigma,
+                box_origin_x=origin_x,
+                box_origin_y=origin_y,
+                box_size=side,
+                gauss_x=gauss_x,
+                gauss_y=gauss_y,
+                center_ratio=profile.ratio,
+                ring_radius=profile.ring_radius,
+                donut=profile.donut,
+            )
+        )
+        if len(chosen) == _DONUT_SAMPLE:
+            break
+    return chosen
+
+
+def _same_star(x: float, y: float, star: SampledStar) -> bool:
+    half = star.box_size / 2.0
+    return abs(x - star.x) <= half and abs(y - star.y) <= half
 
 
 def recommend_focus(

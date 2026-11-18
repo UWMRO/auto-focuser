@@ -37,13 +37,16 @@ def main(argv: list[str] | None = None) -> int:
 
     for frame in result.frames:
         measured = frame.measurement
-        print(
+        line = (
             f"{frame.path.name} focus={frame.focus} "
             f"sigma={measured.sigma:.3f} "
             f"sx={measured.sigma_x:.3f} sy={measured.sigma_y:.3f} "
             f"box={measured.box_size} "
             f"star=({measured.x:.1f},{measured.y:.1f})"
         )
+        if measured.donut:
+            line += " DONUT, left out of the parabola"
+        print(line)
     print(result.recommendation.message)
     return 0
 

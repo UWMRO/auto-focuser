@@ -67,9 +67,14 @@ def run_fits(
         previous = (measured.x, measured.y)
         frames.append(FrameResult(path=path, focus=focus, measurement=measured))
 
+    usable = [frame for frame in frames if not frame.measurement.donut]
+    if not usable:
+        raise MeasureError(
+            "Every measured star is a donut. No frames left for the parabola."
+        )
     recommendation = recommend_focus(
-        [frame.focus for frame in frames],
-        [frame.measurement.sigma for frame in frames],
+        [frame.focus for frame in usable],
+        [frame.measurement.sigma for frame in usable],
     )
     return SweepResult(frames=frames, recommendation=recommendation)
 

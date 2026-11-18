@@ -18,7 +18,11 @@ G(x,y) = A \exp\left(-\frac{1}{2}\left[\left(\frac{x-x_0}{\sigma_x}\right)^2 + \
 
 The width used for focusing is the mean of the two axes, \((\sigma_x + \sigma_y)/2\).
 
-Those widths are plotted against the `FOCUS` positions and fit with a parabola, in coordinates centered on the mean position. If the parabola opens upward and its vertex lies inside the sweep, the recommendation is the vertex rounded to the nearest step. Otherwise the recommendation is the sampled position with the lowest width. The result is then reported. Need to add evora-client side display of focus sigma parabola.
+A donut is decided from the radial profile of that background-subtracted light, in one-pixel rings about the fitted center. The center brightness is the mean inside 1.5 pixels. A star is a donut when its brightest ring is at least 3 pixels out and the center is fainter than 80% of that ring.
+
+The brightest star can hide a shallow hole, so the same test is applied to the eight brightest distinct stars. A later detection whose center falls inside an earlier star's box is that same star. An unresolved spike is not counted. The frame is a donut when the brightest star is one, or when two of those stars are. One stray detection is not enough.
+
+Donut frames are left out of the focus fit. The remaining widths are fit against the `FOCUS` positions with a parabola, in coordinates centered on the mean position. If the parabola opens upward and its vertex lies inside the sweep, the recommendation is the vertex rounded to the nearest step. Otherwise the recommendation is the sampled position with the lowest width. The result is then reported. Need to add evora-client side display of focus sigma parabola.
 
 ## Run
 
@@ -33,10 +37,4 @@ A folder is read in filename order. Individual files are used in the order given
 
 ```powershell
 python -m autofocuser C:\path\to\one.fits C:\path\to\two.fits --box-size 32
-```
-
-To write the detection, Gaussian, cross-section, and parabola images into a `debug run` folder next to the FITS files, install `matplotlib` and run:
-
-```powershell
-python debug_run.py C:\path\to\frames
 ```
