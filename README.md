@@ -20,7 +20,7 @@ The width used for focusing is the mean of the two axes, \((\sigma_x + \sigma_y)
 
 A donut is decided from the radial profile of that background-subtracted light, in one-pixel rings about the fitted center. The center brightness is the mean inside 1.5 pixels. A star is a donut when its brightest ring is at least 3 pixels out and the center is fainter than 80% of that ring.
 
-The brightest star can hide a shallow hole, so the same test is applied to the eight brightest distinct stars. A later detection whose center falls inside an earlier star's box is that same star. An unresolved spike is not counted. The frame is a donut when the brightest star is one, or when two of those stars are. One stray detection is not enough.
+Oversaturation may mess up results, so the same test is applied to the eight brightest distinct stars. The frame is a donut when the brightest star is one, or when two of those stars are.
 
 Donut frames are left out of the focus fit. The remaining widths are fit against the `FOCUS` positions with a parabola, in coordinates centered on the mean position. If the parabola opens upward and its vertex lies inside the sweep, the recommendation is the vertex rounded to the nearest step. Otherwise the recommendation is the sampled position with the lowest width. The result is then reported. Need to add evora-client side display of focus sigma parabola.
 
